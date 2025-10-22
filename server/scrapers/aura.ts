@@ -1,12 +1,15 @@
-//figure out what to put for user-agent and then figure out how to get the specific data when inputing a fragrance name.
-//DO THIS ^^^^
+//Two step scraper, gets search results for the searchTerm,
+//then vists indiviual product page to get the data
+import * as cheerio from "cheerio";
+
 export async function searchFragrance(searchTerm: string): Promise<any> {
   if (!searchTerm) {
-    //incase search input is empty or whitesapce
+    //in case search input is empty or whitesapce
     throw new Error("Provide a fragrance name");
   }
 
-  const url = `https://www.aurafragrance.com/products.json?q=${encodeURIComponent(
+  //builds search url
+  const url = `https://www.aurafragrance.com/search?q=${encodeURIComponent(
     searchTerm
   )}`;
 
@@ -15,7 +18,8 @@ export async function searchFragrance(searchTerm: string): Promise<any> {
       headers: {
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        accept: "application/json, text/plain, */*",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*,q=0.8",
       },
     });
 
@@ -24,12 +28,60 @@ export async function searchFragrance(searchTerm: string): Promise<any> {
       throw new Error(`Failed to fetch products: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.products;
+    const html = await response.text(); // get raw HTMl as string
+    const $ = cheerio.load(html); //load html into cheerio
 
+    // visitng the search page to get the products indivual page
+    const firstProductLink = $(".grid-item.search-result") // this is the css class selectors
+      .first() // only first product
+      .find("a") // gets link inisde the product
+      .attr("href"); // gets the url from link
+
+    //check if link returns a product's indivual page link
+    if (!firstProductLink) {
+      throw new Error("No products found");
+    }
+
+    console.log(`Fetching first product: ${firstProductLink}`);
+
+    const fullProductUrl = firstProductLink.startsWith("http") ? firstProductLink : `https://www.aurafragrance.com${firstProductLink}`;
+
+    // visiting the product page get the data
+    const productResponse = await fetch(fullProductUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+
+    if (!productResponse.ok) {
+      throw new Error(
+        `Failed to fetch product page: ${productResponse.status}`
+      );
+    }
+    //convert indiviual product page HTML
+    const productHtml = await productResponse.text();
+    const $product = cheerio.load(productHtml); // allows to search thru product indiviual page
+
+    //extracting data using css selectrs
+    const name = $product("h1").text().trim();
+    const imageUrl = $product('meta[itemprop="image"]').attr("content") || "";
+    const priceValue = $product('meta[itemprop="price"]').attr("content") || "";
+    const price = priceValue ? `$${priceValue}` : "Price not found";
+
+    console.log(`First product: ${name} - ${price}`);
+    // returns the name,price,imagerurl together to whoever/wtv called this function
+    // returning an array to index.ts bc its expecting an array
+    return [{
+      name,
+      price,
+      imageUrl,
+    }];
   } catch (error) {
     //log error and rethrow
-    console.error("Error seareching for fragrance:", error);
+    console.error("Error searching for fragrance:", error);
     throw error;
   }
 }

@@ -17,10 +17,10 @@ app.get("/api/search", async (req, res) => { // this is the request from the fro
     try {
         const fragranceName = req.query.q as string; 
 
-        //basically an error handler? val;idating they provided a fragrance name
+        //basically an error handler? validating they provided a fragrance name
         if (!fragranceName) {
             return res.status(400).json({
-                error:"please rpovide a fragrance name"
+                error:"please provide a fragrance name"
             });
         }
         const products = await searchFragrance(fragranceName);
