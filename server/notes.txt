@@ -1,3 +1,0 @@
-client: check error use state. 
-check code see if everyhting is good. 
-run it 
