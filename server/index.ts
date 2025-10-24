@@ -23,9 +23,13 @@ app.get("/api/search", async (req, res) => { // this is the request from the fro
                 error:"please provide a fragrance name"
             });
         }
+        //pause everything until searchFragrance function 
+        // from aura.ts scraper file happens
+        //and then continue 
         const products = await searchFragrance(fragranceName);
 
-        // sending results back as JSON
+        // sending results as an array(bc of the return on aura.ts)
+        //  back as JSON to the frontend
         res.json({
             success: true,
             count: products.length,

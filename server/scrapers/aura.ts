@@ -44,7 +44,9 @@ export async function searchFragrance(searchTerm: string): Promise<any> {
 
     console.log(`Fetching first product: ${firstProductLink}`);
 
-    const fullProductUrl = firstProductLink.startsWith("http") ? firstProductLink : `https://www.aurafragrance.com${firstProductLink}`;
+    const fullProductUrl = firstProductLink.startsWith("http")
+      ? firstProductLink
+      : `https://www.aurafragrance.com${firstProductLink}`;
 
     // visiting the product page get the data
     const productResponse = await fetch(fullProductUrl, {
@@ -65,7 +67,27 @@ export async function searchFragrance(searchTerm: string): Promise<any> {
     const productHtml = await productResponse.text();
     const $product = cheerio.load(productHtml); // allows to search thru product indiviual page
 
-    //extracting data using css selectrs
+    //follwing try catch is for geting the productId
+    //more complicated bc inside tag contains 2 properties productId and variantId
+    //we need to extract only the productId property
+    let productId = "";
+    try {
+      // finds script tag with id="shop-promise-product"
+      //.html() gets content inside of script tag(the json string)
+      const productScript = $product("#shop-promise-product").html();
+      // if there is such a tag
+      if (productScript) {
+        //convert json string into JS object
+        const productData = JSON.parse(productScript);
+        //extract productId property from parsed object
+        //object looks like this
+        //{productId: "7312085876799"(want this), variantId: "40475586166847"}
+        productId = productData.productId || "";
+      }
+    } catch (error) {
+      console.log("Could not extract product ID:", error);
+    }
+    //extracting data using css selectors
     const name = $product("h1").text().trim();
     const imageUrl = $product('meta[itemprop="image"]').attr("content") || "";
     const priceValue = $product('meta[itemprop="price"]').attr("content") || "";
@@ -74,11 +96,14 @@ export async function searchFragrance(searchTerm: string): Promise<any> {
     console.log(`First product: ${name} - ${price}`);
     // returns the name,price,imagerurl together to whoever/wtv called this function
     // returning an array to index.ts bc its expecting an array
-    return [{
-      name,
-      price,
-      imageUrl,
-    }];
+    return [
+      {
+        id: productId,
+        name,
+        price,
+        imageUrl,
+      },
+    ];
   } catch (error) {
     //log error and rethrow
     console.error("Error searching for fragrance:", error);
